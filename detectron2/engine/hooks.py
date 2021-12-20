@@ -505,7 +505,7 @@ class EvalHook(HookBase):
     It is executed every ``eval_period`` iterations and after the last iteration.
     """
 
-    def __init__(self, eval_period, eval_function):
+    def __init__(self, eval_period, eval_function, start_iter=0):
         """
         Args:
             eval_period (int): the period to run `eval_function`. Set to 0 to
@@ -520,6 +520,7 @@ class EvalHook(HookBase):
         """
         self._period = eval_period
         self._func = eval_function
+        self._start_iter = start_iter
 
     def _do_eval(self):
         results = self._func()
@@ -546,7 +547,7 @@ class EvalHook(HookBase):
 
     def after_step(self):
         next_iter = self.trainer.iter + 1
-        if self._period > 0 and next_iter % self._period == 0:
+        if self._period > 0 and next_iter % self._period == 0 and next_iter >= self._start_iter:
             # do the last eval in after_train
             if next_iter != self.trainer.max_iter:
                 self._do_eval()

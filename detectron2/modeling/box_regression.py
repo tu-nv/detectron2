@@ -5,7 +5,7 @@ import torch
 from fvcore.nn import giou_loss, smooth_l1_loss
 from torch.nn import functional as F
 
-from detectron2.layers import cat, ciou_loss, diou_loss
+from detectron2.layers import cat, ciou_loss, diou_loss, cdiou_loss, aiou_loss
 from detectron2.structures import Boxes
 
 # Value for clamping large dw and dh predictions. The heuristic is that we clamp
@@ -343,27 +343,75 @@ def _dense_box_regression_loss(
             beta=smooth_l1_beta,
             reduction="sum",
         )
-    elif box_reg_loss_type == "giou":
-        pred_boxes = [
-            box2box_transform.apply_deltas(k, anchors) for k in cat(pred_anchor_deltas, dim=1)
-        ]
-        loss_box_reg = giou_loss(
-            torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum"
-        )
-    elif box_reg_loss_type == "diou":
-        pred_boxes = [
-            box2box_transform.apply_deltas(k, anchors) for k in cat(pred_anchor_deltas, dim=1)
-        ]
-        loss_box_reg = diou_loss(
-            torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum"
-        )
-    elif box_reg_loss_type == "ciou":
-        pred_boxes = [
-            box2box_transform.apply_deltas(k, anchors) for k in cat(pred_anchor_deltas, dim=1)
-        ]
-        loss_box_reg = ciou_loss(
-            torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum"
-        )
     else:
-        raise ValueError(f"Invalid dense box regression loss type '{box_reg_loss_type}'")
+        pred_boxes = [
+            box2box_transform.apply_deltas(k, anchors) for k in cat(pred_anchor_deltas, dim=1)
+        ]
+        # for alpha_loss, a value is 3 as set in the paper
+        # https://arxiv.org/abs/2110.13675
+        a = 3
+        # j for JIoU is set to 2 according to our exps
+        j = 2
+        if box_reg_loss_type == "giou":
+            loss_box_reg = giou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum"
+            )
+        elif box_reg_loss_type == "alpha_giou":
+            loss_box_reg = giou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum", a = a
+            )
+        elif box_reg_loss_type == "jgiou":
+            loss_box_reg = giou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum", j = j
+            )
+        elif box_reg_loss_type == "diou":
+            loss_box_reg = diou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum"
+            )
+        elif box_reg_loss_type == "alpha_diou":
+            loss_box_reg = diou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum", a = a
+            )
+        elif box_reg_loss_type == "jdiou":
+            loss_box_reg = diou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum", j = j
+            )
+        elif box_reg_loss_type.startswith("jdiou"):
+            _, j_tune = box_reg_loss_type.split("-")
+            j_tune = float(j_tune)
+            loss_box_reg = diou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum", j = j_tune
+            )
+        elif box_reg_loss_type == "ciou":
+            loss_box_reg = ciou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum"
+            )
+        elif box_reg_loss_type == "alpha_ciou":
+            loss_box_reg = ciou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum", a = a
+            )
+        elif box_reg_loss_type == "jciou":
+            loss_box_reg = ciou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum", j = j
+            )
+        # CDIoU loss: https://arxiv.org/abs/2103.11696
+        elif box_reg_loss_type == "cdiou":
+            pred_boxes = [
+                box2box_transform.apply_deltas(k, anchors) for k in cat(pred_anchor_deltas, dim=1)
+            ]
+            loss_box_reg = cdiou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum"
+            )
+        # my prev attemp AIoU (Another IoU)
+        elif box_reg_loss_type == "aiou":
+            loss_box_reg = aiou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum"
+            )
+        elif box_reg_loss_type == "jaiou":
+            loss_box_reg = aiou_loss(
+                torch.stack(pred_boxes)[fg_mask], torch.stack(gt_boxes)[fg_mask], reduction="sum", j=j
+            )
+
+        else:
+            raise ValueError(f"Invalid dense box regression loss type '{box_reg_loss_type}'")
     return loss_box_reg

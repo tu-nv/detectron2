@@ -1,0 +1,24 @@
+#------ 1st conf
+_BASE_: "faster_rcnn_R_50_FPN.yaml"
+MODEL:
+  RPN:
+    BBOX_REG_LOSS_WEIGHT: 1.0
+  ROI_BOX_HEAD:
+    BBOX_REG_LOSS_WEIGHT: 2.0
+
+INPUT:
+  MIN_SIZE_TRAIN:  (640, )
+  MIN_SIZE_TEST: 640
+
+DATASETS:
+  TRAIN: ('voc_2012_train', 'voc_2007_train')
+  TEST: ('voc_2012_val', 'voc_2007_val')
+
+SOLVER:
+  IMS_PER_BATCH: 16
+  BASE_LR: 0.02
+
+TEST:
+  EVAL_PERIOD: 250
+  EVAL_START_ITER: 14000
+

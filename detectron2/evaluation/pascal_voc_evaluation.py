@@ -70,7 +70,7 @@ class PascalVOCDetectionEvaluator(DatasetEvaluator):
     def evaluate(self):
         """
         Returns:
-            dict: has a key "segm", whose value is a dict of "AP", "AP50", and "AP75".
+            dict: has a key "segm", whose value is a dict of "AP", "AP50", and "AP75" and "AP95".
         """
         all_predictions = comm.gather(self._predictions, dst=0)
         if not comm.is_main_process():
@@ -111,7 +111,7 @@ class PascalVOCDetectionEvaluator(DatasetEvaluator):
 
         ret = OrderedDict()
         mAP = {iou: np.mean(x) for iou, x in aps.items()}
-        ret["bbox"] = {"AP": np.mean(list(mAP.values())), "AP50": mAP[50], "AP75": mAP[75]}
+        ret["bbox"] = {"AP": np.mean(list(mAP.values())), "AP50": mAP[50], "AP75": mAP[75], "AP95": mAP[95]}
         return ret
 
 
